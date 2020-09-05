@@ -17,7 +17,9 @@ client.on("message", (message) => {
   // Commands
   if (command === "ping") {
     const timeTaken = Date.now() - message.createdTimestamp;
-    message.reply(`Pong! This message had a latency of ${timeTaken}ms.`);
+    const messageToSend = `Pong! This message had a latency of ${timeTaken}ms.`
+    message.reply(messageToSend);
+    console.log(messageToSend)
   }
 
   if (command === "next") {
@@ -38,6 +40,7 @@ client.on("message", (message) => {
         const datetime = date.toString()
 
         message.channel.send(messageToSend + '\n' + datetime)
+        console.log(messageToSend + '\n' + datetime)
       });
     });
   }
