@@ -4,6 +4,7 @@
   "description": "A discord bot for F1 in Toronto",
   "main": "index.js",
   "scripts": {
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Roberto Loja",
