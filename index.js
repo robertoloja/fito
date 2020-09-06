@@ -25,12 +25,10 @@ const callErgast = (endpoint, callback) => {
 
     https.get(ergastApiUrl + endpoint, res => {
         let body = "";
-
         res.setEncoding("utf8");
         res.on("data", data => {
             body += data;
         });
-
         res.on("end", () => {
             body = JSON.parse(body);
             callback(body)
@@ -111,16 +109,15 @@ client.on("message", (message) => {
                 .map(params.tableMap)
 
             let messageToSend = data.map(params.messageMap)
-                .slice(0, args[1] ? args[1] : (args[0] ? args[0] : 5))
+                .slice(0, args[1] ? args[1] : (args[0] && parseInt(args[0]) ? args[0] : 5))
                 .join('')
-
             message.channel.send(messageToSend)
         }
 
         if ("wcc" === args[0]) {
             // world constructors championship
             const parameters = {
-                tableMap: (constructor) => {
+                tableMap: constructor => {
                     return {
                         points: constructor.points,
                         name: constructor.Constructor.name,
@@ -128,16 +125,14 @@ client.on("message", (message) => {
                     }
                 },
                 standingsKey: 'ConstructorStandings',
-                messageMap: (constructor, index) => {
-                    return `${index + 1}. ${constructor.name}\t${constructor.emoji}\t${constructor.points}\n`
-                },
+                messageMap: (constructor, index) =>
+                    `${index + 1}. ${constructor.name}\t${constructor.emoji}\t${constructor.points}\n`,
             }
-
             callErgast('current/constructorStandings.json', getPointsData(parameters))
         } else {
             // world drivers championship
             const parameters = {
-                tableMap: (driver) => {
+                tableMap: driver => {
                     return {
                         points: driver.points,
                         full_name: `${driver.Driver.givenName} ${driver.Driver.familyName}`,
@@ -145,9 +140,8 @@ client.on("message", (message) => {
                     }
                 },
                 standingsKey: 'DriverStandings',
-                messageMap: (driver, index) => {
-                    return `${index + 1}. ${driver.full_name} ${driver.constructor}\t${driver.points}\t\n`
-                },
+                messageMap: (driver, index) =>
+                    `${index + 1}. ${driver.full_name} ${driver.constructor}\t${driver.points}\t\n`,
             }
             callErgast('current/driverStandings.json', getPointsData(parameters))
         }
