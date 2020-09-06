@@ -23,7 +23,7 @@ const emojis = {
 
 // API helper function
 const callErgast = (endpoint, callback) => {
-  console.log('Hitting ' + ergastApiUrl + endpoint)
+  console.log('GETting ' + ergastApiUrl + endpoint)
 
   https.get(ergastApiUrl + endpoint, res => {
     let body = "";
@@ -56,7 +56,6 @@ client.on("message", (message) => {
    * Commands
    **/
   if (command === "ping") {
-    // mostly for debugging
     const timeTaken = Date.now() - message.createdTimestamp;
     const messageToSend = `Pong! This message had a latency of ${timeTaken}ms.`
     message.reply(messageToSend);
@@ -80,43 +79,37 @@ client.on("message", (message) => {
     callErgast('current/next.json', (body) => {
         const race = body.MRData.RaceTable.Races[0]
 
-        const messageToSend = 
-`Round ${race.round}: The ${race.raceName}, at ${race.Circuit.circuitName}`
+        const messageToSend = `Round ${race.round}: The ${race.raceName}, at ${race.Circuit.circuitName}`
 
         var date = new Date(race.date + ' ' + race.time)
+        // TODO: Remove seconds from date
         const datetime = date.toString()
-
         message.channel.send(messageToSend + '\n' + datetime)
     });
   }
 
 
   if (command === "quali") {
+    // Latest qualifying results
     const getQualiResults = (body) => {
-      console.log('foo')
-
       let data = body.MRData
                       .RaceTable
                       .Races[0]
                       .QualifyingResults
-        .map((result) => {
-          console.log(result)
-          return {
-            driver_code: result.Driver.code,
-            emoji: emojis[result.Constructor.constructorId],
-            q1: result.Q1,
-            q2: result.Q2 ? result.Q2 : '',
-            q3: result.Q3 ? result.Q3 : '',
-          }
-        })
+                      .map((result) => {
+                        return {
+                          driver_code: result.Driver.code,
+                          emoji: emojis[result.Constructor.constructorId],
+                          q1: result.Q1,
+                          q2: result.Q2 ? result.Q2 : '',
+                          q3: result.Q3 ? result.Q3 : '',
+                        }
+                      })
 
-      let messageToSend = data.map(
-        (result, index) =>
-          `${index+1}. ${result.driver_code}\t${result.emoji}\t${result.q1}\t${result.q2}\t${result.q3}\n`
-                              ).slice(0, args[0] | 5)
-                              .join('')
+      let messageToSend = data.map((result, index) =>
+          `${index+1}. ${result.driver_code}\t${result.emoji}\t${result.q1}\t${result.q2}\t${result.q3}\n`)
 
-      message.channel.send(messageToSend)
+      message.channel.send(messageToSend.slice(0, args[0] ? args[0] : 5).join(''))
       return
     }
     callErgast('current/next/qualifying.json', getQualiResults)
@@ -124,55 +117,65 @@ client.on("message", (message) => {
 
 
   if (command === "points") {
-    // Current standings
-    if ("wcc" === args[0]) {
-      const getConstructorData = (body) => {
-        let data = body.MRData
-                       .StandingsTable
-                       .StandingsLists[0]
-                       .ConstructorStandings
-          .map((constructor) => {
-            return {
-              points: constructor.points,
-              name: constructor.Constructor.name,
-              emoji: emojis[constructor.Constructor.constructorId]
-            }
-          })
-
-        let messageToSend = data.map(
-          (constructor, index) =>
-            `${index+1}. ${constructor.name}\t${constructor.emoji}\t${constructor.points}\n`
-                               ).slice(0, args[1] | 5)
-                                .join('')
-
-        message.channel.send(messageToSend)
-      }
-
-      callErgast('current/constructorStandings.json', getConstructorData)
-      return
-    }
-
-    const getDriverData = (body) => {
+    // championship points tally
+    const getPointsData = (params) => (body) => {
       let data = body.MRData
-                   .StandingsTable
-                   .StandingsLists[0]
-                   .DriverStandings
-                   .map((driver) => {
-                     return {
-          points: driver.points,
-          full_name: `${driver.Driver.givenName} ${driver.Driver.familyName}`,
-          constructor: emojis[driver.Constructors[0].constructorId]
-      }})
+                      .StandingsTable
+                      .StandingsLists[0][params.standingsKey]
+        .map(params.tableMap)
 
-      let messageToSend = data.map((driver, index) => {
-        return `${index+1}. ${driver.full_name} ${driver.constructor}\t${driver.points}\t\n`
-      }).slice(0, args[1] | 5).join('')
+      let messageToSend = data.map(params.messageMap)
+                              .slice(0, args[1] | 5)
+                              .join('')
 
       message.channel.send(messageToSend)
     }
 
-    callErgast('current/driverStandings.json', getDriverData)
-  }
+    if ("wcc" === args[0]) {
+      // world constructors championship
+      const parameters = {
+        tableMap: (constructor) => {
+                    return {
+                      points: constructor.points,
+                      name: constructor.Constructor.name,
+                      emoji: emojis[constructor.Constructor.constructorId]
+                    }
+                  },
+        standingsKey: 'ConstructorStandings',
+        messageMap: (constructor, index) => {
+          const messageString = (index + 1) + '. ' + constructor.name + '\t' +
+                                constructor.emoji + '\t' + constructor.points +
+                                '\n'
+          return messageString
+        },
+      }
+
+      callErgast('current/constructorStandings.json', 
+                 getPointsData(parameters))
+      return
+
+    } else {
+      // world drivers championship
+      const parameters = {
+        tableMap: (driver) => {
+                    return {
+                      points: driver.points,
+                      full_name: driver.Driver.givenName +
+                                ' ' + driver.Driver.familyName,
+                      constructor: emojis[driver.Constructors[0]
+                                                .constructorId]
+                    }
+                  },
+        standingsKey: 'DriverStandings',
+        messageMap: (driver, index) => {
+          return (index + 1) + '. ' + driver.full_name + ' ' +
+            driver.constructor + '\t' + driver.points + '\t\n'
+                    },
+      }
+      callErgast('current/driverStandings.json', 
+                 getPointsData(parameters))
+    }
+  }      
 });
 
 client.login(process.env.BOT_TOKEN);
