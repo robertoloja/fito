@@ -69,7 +69,7 @@ client.on("message", (message) => {
             const race = body.MRData.RaceTable.Races[0]
             const messageToSend = `Round ${race.round}: The ${race.raceName}, at ${race.Circuit.circuitName}`
 
-            var date = new Date(race.date + ' ' + race.time)
+            var date = new Date(race.date + ' ' + race.time).toLocaleString("en-US", {timeZone: "America/New_York"})
             // TODO: Remove seconds from date
             const datetime = date.toString()
             message.channel.send(messageToSend + '\n' + datetime)
